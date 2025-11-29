@@ -1,80 +1,60 @@
 const Groq = require('groq-sdk');
-require('dotenv').config();
+const { ENV } = require('../lib/env');
 
-// Init Client
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-});
+const groq = new Groq({ apiKey: ENV.GROQ_API_KEY });
 
-/**
- * Hàm phân tích ý kiến khán giả
- * @param {string} question - Câu hỏi gốc của Host
- * @param {Array} comments - Danh sách các object comment { content: "..." }
- */
-async function analyzeComments(question, comments) {
-    // 1. Validate đầu vào
+// Hàm làm sạch JSON (quan trọng để tránh lỗi 500)
+const cleanJsonString = (str) => {
+    if (!str) return "";
+    return str.replace(/``````/g, "").trim();
+};
+
+const analyzeComments = async (question, comments) => {
     if (!comments || comments.length === 0) return null;
 
-    console.log(`🤖 AI Processing: ${comments.length} comments...`);
-
-    // 2. Chuẩn bị Prompt
-    // Gom text lại thành list gạch đầu dòng
-    const listText = comments.map(c => `- ${c.content}`).join('\n');
+    const commentText = comments.map(c => `- ${c.content}`).join('\n');
 
     const prompt = `
-    Context: Khán giả đang trả lời câu hỏi: "${question}"
-    Danh sách câu trả lời:
-    ${listText}
+    Phân tích ý kiến về câu hỏi: "${question}"
+    Dữ liệu:
+    ${commentText}
 
-    Nhiệm vụ của bạn:
-    1. Gom nhóm các ý kiến tương đồng (Clustering).
-    2. Đếm số lượng mỗi nhóm.
-    3. Xác định cảm xúc (positive/negative/neutral).
-    4. Viết một câu tóm tắt ngắn gọn bằng tiếng Việt.
-
-    OUTPUT FORMAT (JSON ONLY):
+    Yêu cầu: Trả về kết quả JSON thuần túy.
+    Cấu trúc:
     {
-      "clusters": [
-        { "topic": "Tên chủ đề ngắn (Tiếng Việt)", "count": 10, "sentiment": "positive" }
-      ],
-      "summary": "Câu tóm tắt ngắn gọn 15-20 từ."
+        "summary": "Tóm tắt 2-3 câu",
+        "sentiment": "Positive/Negative/Neutral/Mixed",
+        "clusters": [
+            { "topic": "Chủ đề 1", "count": 10, "sentiment": "Positive" }
+        ]
     }
     `;
 
     try {
-        // 3. Gọi Groq API (Llama-3-70b - Con này thông minh nhất của Groq)
         const completion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a helpful assistant that outputs strict JSON. Do not output any markdown or explanation."
-                },
-                {
-                    role: "user",
-                    content: prompt
-                }
-            ],
-            model: "llama3-70b-8192",
+            messages: [{ role: "user", content: prompt }],
 
-            // QUAN TRỌNG: Ép kiểu JSON để đỡ phải parse string bằng tay
-            response_format: { type: "json_object" },
+            // --- SỬA DÒNG NÀY ---
+            model: "openai/gpt-oss-120b",
+            // --------------------
 
-            temperature: 0.5, // 0.5 để cân bằng giữa sáng tạo và chính xác
-            max_tokens: 1024,
+            temperature: 0.3,
+            max_completion_tokens: 4096,
+            top_p: 1,
+            stream: false
         });
 
-        // 4. Xử lý kết quả
-        const rawContent = completion.choices[0]?.message?.content;
-        console.log("✅ Groq Output:", rawContent);
+        const content = completion.choices[0]?.message?.content;
+        console.log("🤖 AI Output:", content); // Log để check
 
-        return JSON.parse(rawContent);
+        if (!content) return null;
+
+        return JSON.parse(cleanJsonString(content));
 
     } catch (error) {
-        console.error("🔥 Groq Error:", error.message);
-
-        // Fallback: Nếu AI lỗi, trả về null hoặc mock data để app không chết
+        console.error("🔥 Groq Error:", error.message); // Sẽ hiện rõ lỗi nếu có
         return null;
     }
-}
+};
 
 module.exports = { analyzeComments };

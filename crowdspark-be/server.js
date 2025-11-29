@@ -1,58 +1,85 @@
-const { ENV } = require("./src/lib/env.js");
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const cors = require('cors'); // Import CORS
+
+// Import các module
 const { db } = require('./src/config/firebase');
+const authRoutes = require('./src/routes/auth.routes');
+const roomRoutes = require('./src/routes/roomRoutes');
+const socketAuth = require('./src/middleware/socketAuth');
+const socketService = require('./src/service/socketService');
+
+// Import AI Service
 const { analyzeComments } = require('./src/service/aiService');
-const { getActiveRoomIds, getAndClearBuffer } = require('./src/service/aiBufferService'); // <--- MỚI
+const { getActiveRoomIds, getAndClearBuffer } = require('./src/service/aiBufferService');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: "*" } });
 
-// --- QUAN TRỌNG: Gắn IO vào App để Controller dùng ---
+// --- 1. CẤU HÌNH CORS & BODY PARSER (QUAN TRỌNG NHẤT) ---
+app.use(cors({ origin: "*" })); // Cho phép mọi nơi gọi API
+app.use(express.json()); // Đọc được JSON từ Body (Login cần cái này)
+
+// --- 2. CẤU HÌNH SOCKET.IO ---
+const io = socketIo(server, {
+  cors: {
+    origin: "*", // Cho phép FE kết nối socket
+    methods: ["GET", "POST"]
+  }
+});
+
+// Gắn io vào app để Controller có thể dùng (cho API trả lời)
 app.set('io', io);
 
-app.use(express.json()); // Để đọc body JSON
+// --- 3. ROUTES API ---
+app.use("/api/auth", authRoutes); // Login/Signup
+app.use("/api/rooms", roomRoutes); // Tạo phòng/Trả lời
 
-// ... (Các route khác của bạn) ...
-const roomRoutes = require('./src/routes/roomRoutes'); // Route phòng
-app.use('/api/rooms', roomRoutes);
+// --- 4. SOCKET LOGIC ---
+io.use(socketAuth); // Middleware xác thực token socket
 
-// ... (Phần Socket Connection giữ nguyên) ...
+io.on('connection', (socket) => {
+  console.log(`✅ Socket User Connected: ${socket.user.name} (${socket.id})`);
+  socketService(io, socket);
+});
 
-// --- AI WORKER (Sửa lại dùng Service) ---
+// --- 5. AI WORKER (CHẠY NGẦM 10s/LẦN) ---
 setInterval(async () => {
   const activeRooms = getActiveRoomIds();
+  if (activeRooms.length === 0) return;
 
   for (const roomId of activeRooms) {
-    // Lấy data từ Service
+    // Lấy tin nhắn từ buffer
     const batchToAnalyze = getAndClearBuffer(roomId);
 
+    // Chỉ phân tích nếu có từ 3 tin nhắn trở lên
     if (!batchToAnalyze || batchToAnalyze.length < 3) {
-      // Nếu ít quá thì trả lại vào buffer (hoặc xử lý logic khác tùy bạn)
-      // Ở đây đơn giản là bỏ qua, chờ đợt sau
-      // (Lưu ý: Logic này hơi simple, thực tế nên restore lại buffer nếu chưa xử lý)
       continue;
     }
 
+    console.log(`🤖 AI Processing Room ${roomId}: ${batchToAnalyze.length} comments...`);
+
     try {
       const roomDoc = await db.collection('rooms').doc(roomId).get();
-      const question = roomDoc.exists ? roomDoc.data().question : "General";
+      const question = roomDoc.exists ? roomDoc.data().question : "General Discussion";
 
       // Gọi AI
       const result = await analyzeComments(question, batchToAnalyze);
 
       if (result) {
+        console.log("✨ AI Done via Worker!");
         io.to(roomId).emit('server_update_summary', result);
       }
     } catch (e) {
-      console.error(`AI Error Room ${roomId}:`, e.message);
+      console.error(`❌ AI Worker Error Room ${roomId}:`, e.message);
     }
   }
 }, 10000);
 
-const PORT = ENV.PORT || 3000;
+// --- 6. KHỞI ĐỘNG SERVER ---
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
+  console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
 });

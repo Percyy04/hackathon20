@@ -37,4 +37,39 @@ const submitResponse = async (req, res) => {
     }
 };
 
-module.exports = { submitResponse };
+
+// --- HÀM MỚI: Lấy toàn bộ câu trả lời của 1 phòng ---
+const getAllResponses = async (req, res) => {
+    try {
+        const { roomId } = req.params; // Lấy roomId từ URL
+
+        if (!roomId) {
+            return res.status(400).json({ message: "Thiếu roomId" });
+        }
+
+        // Truy vấn sub-collection 'responses' của phòng đó
+        // Sắp xếp theo thời gian giảm dần (Mới nhất lên đầu)
+        const responsesRef = db.collection('rooms').doc(roomId).collection('responses');
+        const snapshot = await responsesRef.orderBy('timestamp', 'desc').get();
+
+        const responses = [];
+        snapshot.forEach(doc => {
+            responses.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        return res.status(200).json(responses);
+
+    } catch (error) {
+        console.error("Get Responses Error:", error);
+        // Lưu ý: Nếu lỗi do chưa có index trên Firebase thì nó sẽ trả về link để tạo index trong log
+        return res.status(500).json({ message: "Lỗi lấy danh sách câu trả lời" });
+    }
+};
+
+module.exports = {
+    submitResponse,
+    getAllResponses // <--- Nhớ export thêm
+};
