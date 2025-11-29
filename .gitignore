@@ -134,6 +134,8 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
+hackathon20-de134-firebase-adminsdk-fbsvc-d0e2f6f848.json
+
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
