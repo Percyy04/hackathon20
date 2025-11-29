@@ -1,6 +1,10 @@
 const { db } = require('../config/firebase');
 // const { analyzeComments } = require('./aiService'); // Bỏ comment khi bạn code xong AI
 
+// Bộ đệm lưu tin nhắn tạm thời trong RAM
+const aiBuffers = {};
+// Cấu trúc: { "roomId_123": [ { content: "...", user: "..." }, ... ] }
+
 module.exports = (io) => {
     io.on('connection', (socket) => {
         // Lấy thông tin User từ Middleware (Mongo ID hoặc Guest ID)
@@ -78,6 +82,43 @@ module.exports = (io) => {
             }
 
             // 3. (TODO) Đẩy vào AI Buffer ở đây...
+
+            if (!aiBuffers[roomId]) {
+                aiBuffers[roomId] = [];
+            }
+            aiBuffers[roomId].push({ content });
         });
+        // Cứ 10 giây quét buffer một lần
+        setInterval(async () => {
+            for (const roomId in aiBuffers) {
+                const buffer = aiBuffers[roomId];
+
+                // Nếu ít hơn 3 comment thì thôi, chưa bõ công gọi AI (tiết kiệm)
+                if (!buffer || buffer.length < 3) continue;
+
+                // Copy ra để xử lý và Clear buffer ngay
+                const batchToAnalyze = [...buffer];
+                aiBuffers[roomId] = [];
+
+                // Lấy câu hỏi từ DB (hoặc cache nếu có) để AI hiểu context
+                try {
+                    const roomDoc = await db.collection('rooms').doc(roomId).get();
+                    const question = roomDoc.exists ? roomDoc.data().question : "Ý kiến chung";
+
+                    // Gọi AI
+                    const result = await analyzeComments(question, batchToAnalyze);
+
+                    if (result) {
+                        // Bắn kết quả về cho Host hiển thị
+                        io.to(roomId).emit('server_update_summary', result);
+
+                        // (Optional) Lưu kết quả AI vào Firestore luôn nếu muốn xem lại lịch sử
+                        // await db.collection('rooms').doc(roomId).collection('ai_reports').add(result);
+                    }
+                } catch (e) {
+                    console.error(`AI Worker Error Room ${roomId}:`, e.message);
+                }
+            }
+        }, 10000);
     });
 };
