@@ -6,7 +6,23 @@ const groq = new Groq({ apiKey: ENV.GROQ_API_KEY });
 // Hàm làm sạch JSON (quan trọng để tránh lỗi 500)
 const cleanJsonString = (str) => {
     if (!str) return "";
-    return str.replace(/``````/g, "").trim();
+
+    // 1. Xóa các dòng ``````
+    let cleaned = str.replace(/``````/g, "");
+
+    // 2. Trim khoảng trắng đầu cuối
+    cleaned = cleaned.trim();
+
+    // 3. (Quan trọng) Đôi khi AI trả về text dư ở đầu/cuối ngoài JSON
+    // Tìm dấu mở ngoặc { đầu tiên và dấu đóng ngoặc } cuối cùng
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+
+    return cleaned;
 };
 
 const analyzeComments = async (question, comments) => {
@@ -19,10 +35,10 @@ const analyzeComments = async (question, comments) => {
     Dữ liệu:
     ${commentText}
 
-    Yêu cầu: Trả về kết quả JSON thuần túy.
+    Yêu cầu: Trả về kết quả JSON thuần túy. Giọng văn giống con người nhất có thể
     Cấu trúc:
     {
-        "summary": "Tóm tắt 2-3 câu",
+        "summary": "Tóm tắt 3-5 câu",
         "sentiment": "Positive/Negative/Neutral/Mixed",
         "clusters": [
             { "topic": "Chủ đề 1", "count": 10, "sentiment": "Positive" }
