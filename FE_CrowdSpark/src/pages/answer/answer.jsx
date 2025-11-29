@@ -27,7 +27,6 @@ const Answer = () => {
   useEffect(() => {
     fetchQuestion();
   }, []);
-  console.log(question);
 
   const fetchQuestion = async () => {
     try {
@@ -48,7 +47,11 @@ const Answer = () => {
     setLoading(true);
 
     try {
-      const res = await answerQuestion(answer);
+      const payload = {
+        roomId,
+        content: answer,
+      };
+      const res = await answerQuestion(payload);
 
       if (!res) {
         toast.error("Cannot answer this question!");

@@ -48,8 +48,17 @@ export const addQuestionFunction = async (payload) => {
 
 export const answerQuestion = async (payload) => {
   try {
-    const res = await axios.post("/", payload);
+    const res = await axios.post("/rooms/answer", payload);
     return res.data;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const getAnswer = async (id) => {
+  try {
+    const res = await axios.post(`/rooms/${id}/summarize`);
+    return res.data.data;
   } catch (error) {
     console.log(error);
   }
