@@ -6,8 +6,14 @@ const cors = require("cors");
 const connectMongoDB = require("./src/store/mongo.js");
 //const socketHandler = require("./src/socket/socketHandler");
 
+const socketService = require("./src/service/socketService.js"); // Đổi tên cho khớp với file logic
+const socketAuth = require("./src/middleware/socketAuth.js");     // Middleware xác thực socket
+
+
+
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 connectMongoDB();
 
@@ -16,8 +22,18 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// Khởi động luồng Socket
-//socketHandler(io);
+app.get("/", (req, res) => {
+  res.send("CrowdSpark Backend is Ready! 🚀");
+});
+
+
+// Kích hoạt Middleware xác thực cho Socket
+// (Để phân biệt User thật vs Guest)
+io.use(socketAuth);
+
+// Khởi chạy logic socket (Real-time + AI)
+socketService(io);
+
 
 const PORT = ENV.PORT || 3000;
 server.listen(PORT, () => {
