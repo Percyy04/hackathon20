@@ -4,12 +4,15 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const connectMongoDB = require("./src/store/mongo.js");
+const authRouter = require("./src/routes/auth.routes.js");
 //const socketHandler = require("./src/socket/socketHandler");
 
 const app = express();
 app.use(cors());
 
 connectMongoDB();
+
+app.use("/api/auth", authRouter);
 
 const server = http.createServer(app);
 const io = new Server(server, {
