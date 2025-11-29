@@ -7,18 +7,36 @@ import {
   LoadingOutlined,
 } from "@ant-design/icons";
 import { motion } from "framer-motion";
+import { loginFunction } from "../../../services/apiServices";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
 
 const Login = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const onFinish = async (values) => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Login values:", values);
+    try {
+      const payload = {
+        email: values.email,
+        password: values.password,
+      };
+
+      const res = await loginFunction(payload);
+
+      if (!res) {
+        toast.error("Login failed!");
+      } else {
+        toast.success("Login success!");
+        navigate("/home");
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const handleGoogleLogin = async () => {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button, Avatar, Dropdown, Badge, Input } from "antd";
+import { Button, Avatar, Dropdown, Badge, Input, Modal } from "antd";
 import {
   PlusOutlined,
   QuestionCircleOutlined,
@@ -63,14 +63,21 @@ const Home = () => {
     },
   ];
 
+  // State cho danh sách câu hỏi
+  const [questionsList, setQuestionsList] = useState(questions);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newQuestion, setNewQuestion] = useState({
+    title: "",
+    tags: "",
+  });
+
   const handleLogout = () => {
     console.log("Logging out...");
     // Add logout logic here
   };
 
   const handleAskQuestion = () => {
-    console.log("Opening ask question modal...");
-    // Add ask question logic here
+    setIsModalOpen(true);
   };
 
   const userMenuItems = [
@@ -284,7 +291,7 @@ const Home = () => {
 
             {/* Questions List */}
             <div className="space-y-4">
-              {questions.map((question, index) => (
+              {questionsList.map((question, index) => (
                 <motion.div
                   key={question.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -336,6 +343,45 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Ask Question Modal */}
+      <Modal
+        title="Ask a Question"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={() => {
+          if (!newQuestion.title) return;
+          const newQ = {
+            id: questionsList.length + 1,
+            title: newQuestion.title,
+            author: userName,
+            answers: 0,
+            views: 0,
+            tags: newQuestion.tags.split(",").map((t) => t.trim()),
+            time: "Just now",
+            trending: false,
+          };
+          setQuestionsList([newQ, ...questionsList]);
+          setNewQuestion({ title: "", tags: "" });
+          setIsModalOpen(false);
+        }}
+      >
+        <Input
+          placeholder="Question title"
+          value={newQuestion.title}
+          onChange={(e) =>
+            setNewQuestion({ ...newQuestion, title: e.target.value })
+          }
+          className="mb-3"
+        />
+        <Input
+          placeholder="Tags (comma separated)"
+          value={newQuestion.tags}
+          onChange={(e) =>
+            setNewQuestion({ ...newQuestion, tags: e.target.value })
+          }
+        />
+      </Modal>
     </div>
   );
 };

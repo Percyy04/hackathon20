@@ -7,8 +7,12 @@ import {
   GoogleOutlined,
 } from "@ant-design/icons";
 import { motion } from "framer-motion";
+import { signupFunction } from "../../../services/apiServices";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
 
 const Signup = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -80,12 +84,26 @@ const Signup = () => {
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Signup values:", formData);
-      message.success("Account created successfully!");
+    try {
+      const payload = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      };
+
+      const res = await signupFunction(payload);
+
+      if (!res) {
+        toast.error("Signup failed!");
+      } else {
+        toast.success("Signup success!");
+        navigate("/");
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const handleGoogleSignup = async () => {
