@@ -3,7 +3,7 @@ const { default: mongoose, Schema } = require("mongoose");
 const userSchema = new Schema(
   {
     username: {
-      type: Stirng,
+      type: String,
       required: true,
     },
     email: {

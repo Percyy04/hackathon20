@@ -8,6 +8,7 @@ const {
 } = require("../service/authenServices");
 
 const authenRouter = express.Router();
+authenRouter.use(bodyParser.json());
 
 authenRouter.post("/login", login);
 authenRouter.post("/signup", signup);
