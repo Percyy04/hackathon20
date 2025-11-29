@@ -19,6 +19,7 @@ checkFirestoreConnection();
 app.use("/api/auth", authRouter);
 app.use("/api/rooms", roomRoutes);
 
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },

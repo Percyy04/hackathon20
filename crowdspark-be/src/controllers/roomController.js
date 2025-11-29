@@ -39,4 +39,42 @@ const createRoomAPI = async (req, res) => {
     }
 };
 
-module.exports = { createRoomAPI };
+const getMyRooms = async (req, res) => {
+    try {
+        const userId = req.user.userId; // Lấy ID từ Token
+
+        // Query Firestore: Tìm tất cả phòng do user này làm Host
+        // Sắp xếp theo thời gian tạo mới nhất trước (desc)
+        const roomsRef = db.collection('rooms');
+        const snapshot = await roomsRef
+            .where('hostId', '==', userId)
+            // .orderBy('createdAt', 'desc') // Cần tạo Composite Index trên Firebase mới chạy được sort
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(200).json([]); // Trả về mảng rỗng nếu chưa tạo gì
+        }
+
+        const rooms = [];
+        snapshot.forEach(doc => {
+            rooms.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+
+        // Sắp xếp thủ công bằng JS (để đỡ phải tạo Index trên Firebase lúc demo gấp)
+        rooms.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        return res.status(200).json(rooms);
+
+    } catch (error) {
+        console.error("Get My Rooms Error:", error);
+        return res.status(500).json({ message: "Lỗi lấy danh sách phòng" });
+    }
+};
+
+module.exports = {
+    createRoomAPI,
+    getMyRooms // <--- Nhớ export thêm hàm này
+};

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { createRoomAPI } = require('../controllers/roomController');
-const verifyToken = require('../middleware/auth'); // Middleware check token HTTP
+const { createRoomAPI, getMyRooms } = require('../controllers/roomController');
+const verifyToken = require('../middleware/auth');
 
 // POST /api/rooms/create
-// Phải có Token mới được gọi
 router.post('/create', verifyToken, createRoomAPI);
+
+// GET /api/rooms/my-rooms (Lấy lịch sử câu hỏi của tôi)
+router.get('/my-rooms', verifyToken, getMyRooms);
 
 module.exports = router;
