@@ -8,8 +8,7 @@ const { ENV } = require('../lib/env'); // Giả sử bạn để CLIENT_URL tron
  */
 const generateRoomQR = async (roomId) => {
     // Lấy domain từ biến môi trường, fallback về IP LAN (để test mobile)
-    // Ví dụ ENV.CLIENT_URL = "http://192.168.1.10:5173"
-    const baseUrl = ENV.CLIENT_URL || "https://hackathon20.onrender.com";
+    const baseUrl = ENV.CLIENT_URL || "https://giaidieutuhao.site";
 
     const joinUrl = `${baseUrl}/join/${roomId}`;
 
