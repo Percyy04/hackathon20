@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Avatar, Dropdown, Badge, Input, Modal } from "antd";
 import {
   PlusOutlined,
@@ -13,71 +13,68 @@ import {
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  addQuestionFunction,
+  getAllQuestions,
+  logoutFunction,
+} from "../../services/apiServices";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
 
 const Home = () => {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("home");
   const userName = "John Doe";
-
-  // Sample questions data
-  const questions = [
-    {
-      id: 1,
-      title: "How to implement authentication in React?",
-      author: "Sarah Chen",
-      answers: 12,
-      views: 234,
-      tags: ["React", "Authentication"],
-      time: "2 hours ago",
-      trending: true,
-    },
-    {
-      id: 2,
-      title: "What's the best way to manage state in large applications?",
-      author: "Mike Johnson",
-      answers: 8,
-      views: 156,
-      tags: ["React", "State Management"],
-      time: "5 hours ago",
-      trending: false,
-    },
-    {
-      id: 3,
-      title: "Understanding JavaScript closures with examples",
-      author: "Emily Rodriguez",
-      answers: 15,
-      views: 432,
-      tags: ["JavaScript", "Fundamentals"],
-      time: "1 day ago",
-      trending: true,
-    },
-    {
-      id: 4,
-      title: "How to optimize performance in Next.js applications?",
-      author: "David Kim",
-      answers: 6,
-      views: 189,
-      tags: ["Next.js", "Performance"],
-      time: "2 days ago",
-      trending: false,
-    },
-  ];
-
-  // State cho danh sách câu hỏi
-  const [questionsList, setQuestionsList] = useState(questions);
+  const [questionsList, setQuestionsList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newQuestion, setNewQuestion] = useState({
-    title: "",
-    tags: "",
-  });
+  const [newQuestion, setNewQuestion] = useState("");
 
-  const handleLogout = () => {
-    console.log("Logging out...");
-    // Add logout logic here
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  console.log(questionsList);
+
+  const fetchQuestions = async () => {
+    try {
+      const res = await getAllQuestions();
+      setQuestionsList(res);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutFunction();
+      toast.success("Logout success!");
+      navigate("/");
+      sessionStorage.clear();
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const handleAskQuestion = () => {
     setIsModalOpen(true);
+  };
+
+  const handleAddQuestion = async (content) => {
+    const payload = { question: content };
+    try {
+      const newQuestion = await addQuestionFunction(payload);
+
+      if (!newQuestion) {
+        toast.error("Cannot add new question!");
+      } else {
+        toast.success("New question addes!");
+        setIsModalOpen(false);
+        fetchQuestions();
+      }
+    } catch (error) {
+      console.error("Failed to add question:", error);
+    }
   };
 
   const userMenuItems = [
@@ -291,8 +288,9 @@ const Home = () => {
 
             {/* Questions List */}
             <div className="space-y-4">
-              {questionsList.map((question, index) => (
+              {questionsList?.map((question, index) => (
                 <motion.div
+                  onClick={() => navigate(`/join/${question.id}`)}
                   key={question.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -301,16 +299,19 @@ const Home = () => {
                   className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
                 >
                   <div className="flex items-start gap-4">
+                    {/* Avatar */}
                     <Avatar
                       size={48}
                       className="bg-gradient-to-br from-blue-400 to-blue-600"
                     >
-                      {question.author.charAt(0)}
+                      {question?.hostName?.charAt(0)}
                     </Avatar>
+
+                    {/* Question Info */}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600">
-                          {question.title}
+                          {question.question}
                         </h3>
                         {question.trending && (
                           <FireOutlined className="text-orange-500" />
@@ -318,23 +319,18 @@ const Home = () => {
                       </div>
                       <p className="text-sm text-gray-600 mb-3">
                         Asked by{" "}
-                        <span className="font-medium">{question.author}</span> •{" "}
-                        {question.time}
+                        <span className="font-medium">{question.hostName}</span>{" "}
+                        • {question.time}
                       </p>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        {question.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        <div className="flex items-center gap-4 text-sm text-gray-500 ml-auto">
-                          <span>{question.answers} answers</span>
-                          <span>{question.views} views</span>
-                        </div>
-                      </div>
+
+                      {/* QR Code */}
+                      {question.qrCode && (
+                        <img
+                          src={question.qrCode}
+                          alt="QR Code"
+                          className="w-24 h-24 mt-2 border rounded-md"
+                        />
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -349,37 +345,13 @@ const Home = () => {
         title="Ask a Question"
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
-        onOk={() => {
-          if (!newQuestion.title) return;
-          const newQ = {
-            id: questionsList.length + 1,
-            title: newQuestion.title,
-            author: userName,
-            answers: 0,
-            views: 0,
-            tags: newQuestion.tags.split(",").map((t) => t.trim()),
-            time: "Just now",
-            trending: false,
-          };
-          setQuestionsList([newQ, ...questionsList]);
-          setNewQuestion({ title: "", tags: "" });
-          setIsModalOpen(false);
-        }}
+        onOk={() => handleAddQuestion(newQuestion)}
       >
         <Input
           placeholder="Question title"
-          value={newQuestion.title}
-          onChange={(e) =>
-            setNewQuestion({ ...newQuestion, title: e.target.value })
-          }
+          value={newQuestion}
+          onChange={(e) => setNewQuestion(e.target.value)}
           className="mb-3"
-        />
-        <Input
-          placeholder="Tags (comma separated)"
-          value={newQuestion.tags}
-          onChange={(e) =>
-            setNewQuestion({ ...newQuestion, tags: e.target.value })
-          }
         />
       </Modal>
     </div>

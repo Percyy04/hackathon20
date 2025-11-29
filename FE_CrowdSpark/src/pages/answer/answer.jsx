@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Input, Button, Avatar, Tag, Divider, message } from "antd";
 import {
   SendOutlined,
@@ -10,41 +10,55 @@ import {
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import { motion } from "framer-motion";
+import { useNavigate, useParams } from "react-router";
+import { answerQuestion, getAllQuestions } from "../../services/apiServices";
+import toast from "react-hot-toast";
 
 const { TextArea } = Input;
 
 const Answer = () => {
+  const navigate = useNavigate();
+  const { roomId } = useParams();
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [question, setQuestion] = useState(null);
 
-  // Sample question data
-  const question = {
-    id: 1,
-    title: "How to implement authentication in React with JWT tokens?",
-    description:
-      "I'm building a React application and need to implement user authentication using JWT tokens. What's the best approach for handling login, storing tokens securely, and managing protected routes?",
-    author: "Sarah Chen",
-    tags: ["React", "Authentication", "JWT"],
-    time: "2 hours ago",
-    views: 234,
-    answers: 12,
+  useEffect(() => {
+    fetchQuestion();
+  }, []);
+  console.log(question);
+
+  const fetchQuestion = async () => {
+    try {
+      const res = await getAllQuestions();
+      const ques = res?.find((q) => roomId.toString() === q.id.toString());
+      setQuestion(ques);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const handleSubmit = async () => {
     if (!answer.trim()) {
-      message.error("Please write your answer before submitting");
+      toast.error("Please write your answer before submitting");
       return;
     }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Answer submitted:", answer);
-      setSubmitted(true);
-      setLoading(false);
-      message.success("Your answer has been submitted successfully!");
-    }, 1500);
+
+    try {
+      const res = await answerQuestion(answer);
+
+      if (!res) {
+        toast.error("Cannot answer this question!");
+      } else {
+        toast.success("Answer post success!");
+        navigate("/home");
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const containerVariants = {
@@ -108,14 +122,38 @@ const Answer = () => {
           <p className="text-gray-600 mb-6">
             Thank you for contributing to the community
           </p>
-          <Button
-            type="primary"
-            size="large"
-            onClick={() => setSubmitted(false)}
-            className="bg-gradient-to-r from-blue-500 to-blue-600 border-0 rounded-xl px-8"
+          {/* Fixed Submit Buttons */}
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl flex gap-3"
           >
-            Submit Another Answer
-          </Button>
+            <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
+              <Button
+                type="primary"
+                size="large"
+                icon={<SendOutlined />}
+                loading={loading}
+                onClick={handleSubmit}
+                disabled={!answer.trim()}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 rounded-xl h-14 text-base font-semibold shadow-lg disabled:opacity-50"
+              >
+                {loading ? "Submitting..." : "Submit Answer"}
+              </Button>
+            </motion.div>
+
+            <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
+              <Button
+                type="default"
+                size="large"
+                onClick={() => navigate("/home")}
+                className="w-full border-0 rounded-xl h-14 text-base font-semibold bg-gray-200 hover:bg-gray-300"
+              >
+                Skip Answer
+              </Button>
+            </motion.div>
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -167,51 +205,34 @@ const Answer = () => {
               size={48}
               className="bg-gradient-to-br from-blue-400 to-blue-600 flex-shrink-0"
             >
-              {question.author.charAt(0)}
+              {question?.hostName?.charAt(0)}
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-800 text-sm mb-1">
-                {question.author}
+                {question?.hostName}
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <ClockCircleOutlined />
-                <span>{question.time}</span>
+                <span>{question?.createAt}</span>
               </div>
             </div>
           </div>
 
           {/* Question Title */}
           <h2 className="text-xl font-bold text-gray-800 mb-3 leading-snug">
-            {question.title}
+            {question?.question}
           </h2>
-
-          {/* Question Description */}
-          <p className="text-gray-600 text-sm mb-4 leading-relaxed">
-            {question.description}
-          </p>
-
-          {/* Tags */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {question.tags.map((tag) => (
-              <Tag
-                key={tag}
-                className="px-3 py-1 bg-blue-50 text-blue-600 border-blue-200 rounded-full text-xs font-medium"
-              >
-                {tag}
-              </Tag>
-            ))}
-          </div>
 
           {/* Question Stats */}
           <Divider className="my-3" />
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <div className="flex items-center gap-1">
               <EyeOutlined />
-              <span>{question.views} views</span>
+              <span>{question?.views} views</span>
             </div>
             <div className="flex items-center gap-1">
               <MessageOutlined />
-              <span>{question.answers} answers</span>
+              <span>{question?.answers} answers</span>
             </div>
           </div>
         </motion.div>

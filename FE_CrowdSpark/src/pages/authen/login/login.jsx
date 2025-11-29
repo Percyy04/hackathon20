@@ -31,6 +31,7 @@ const Login = () => {
       } else {
         toast.success("Login success!");
         navigate("/home");
+        sessionStorage.setItem("token", res.token);
       }
     } catch (error) {
       console.log(error);

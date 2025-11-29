@@ -1,8 +1,9 @@
 import axios from "../util/axios.customize";
+import { io } from "socket.io-client";
 
 export const loginFunction = async (payload) => {
   try {
-    const res = await axios.post("/api/auth/login", payload);
+    const res = await axios.post("/auth/login", payload);
     return res.data;
   } catch (error) {
     console.log(error);
@@ -11,7 +12,7 @@ export const loginFunction = async (payload) => {
 
 export const signupFunction = async (payload) => {
   try {
-    const res = await axios.post("/api/auth/signup", payload);
+    const res = await axios.post("/auth/signup", payload);
     return res.data;
   } catch (error) {
     console.log(error);
@@ -20,7 +21,34 @@ export const signupFunction = async (payload) => {
 
 export const logoutFunction = async () => {
   try {
-    const res = await axios.post("/api/auth/logout");
+    const res = await axios.post("/auth/logout");
+    return res.data;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const getAllQuestions = async () => {
+  try {
+    const res = await axios.get("/rooms/my-rooms");
+    return res.data;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const addQuestionFunction = async (payload) => {
+  try {
+    const res = await axios.post("/rooms/create", payload);
+    return res.data;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const answerQuestion = async (payload) => {
+  try {
+    const res = await axios.post("/", payload);
     return res.data;
   } catch (error) {
     console.log(error);
