@@ -1,4 +1,5 @@
 const express = require("express");
+const router = express.Router();
 const bodyParser = require("body-parser");
 const {
   login,
@@ -6,9 +7,12 @@ const {
   logout,
   loginWithGoogle,
 } = require("../service/authenServices");
+const verifyToken = require("../middleware/auth");
 
 const authenRouter = express.Router();
 authenRouter.use(bodyParser.json());
+router.use(verifyToken);
+
 
 authenRouter.post("/login", login);
 authenRouter.post("/signup", signup);

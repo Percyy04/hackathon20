@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const checkFirestoreConnection = require("./src/store/mongo.js");
 const authRouter = require("./src/routes/auth.routes.js");
-
+const roomRoutes = require('./src/routes/roomRoutes');
 const socketService = require("./src/service/socketService.js"); // Đổi tên cho khớp với file logic
 const socketAuth = require("./src/middleware/socketAuth.js");     // Middleware xác thực socket
 
@@ -17,6 +17,7 @@ app.use(express.json());
 checkFirestoreConnection();
 
 app.use("/api/auth", authRouter);
+app.use("/api/rooms", roomRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
