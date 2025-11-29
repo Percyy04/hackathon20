@@ -3,7 +3,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const connectMongoDB = require("./src/store/mongo.js");
+const checkFirestoreConnection = require("./src/store/mongo.js");
 const authRouter = require("./src/routes/auth.routes.js");
 
 const socketService = require("./src/service/socketService.js"); // Đổi tên cho khớp với file logic
@@ -14,7 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-connectMongoDB();
+checkFirestoreConnection();
 
 app.use("/api/auth", authRouter);
 
