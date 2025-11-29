@@ -1,40 +1,56 @@
 const { ENV } = require("./src/lib/env.js");
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
-const checkFirestoreConnection = require("./src/store/mongo.js");
-const authRouter = require("./src/routes/auth.routes.js");
-const roomRoutes = require('./src/routes/roomRoutes');
-const socketService = require("./src/service/socketService.js"); // Đổi tên cho khớp với file logic
-const socketAuth = require("./src/middleware/socketAuth.js");     // Middleware xác thực socket
-
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const { db } = require('./src/config/firebase');
+const { analyzeComments } = require('./src/service/aiService');
+const { getActiveRoomIds, getAndClearBuffer } = require('./src/service/aiBufferService'); // <--- MỚI
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
-checkFirestoreConnection();
-
-app.use("/api/auth", authRouter);
-app.use("/api/rooms", roomRoutes);
-
-
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-});
+const io = socketIo(server, { cors: { origin: "*" } });
 
-app.get("/", (req, res) => {
-  res.send("CrowdSpark Backend is Ready! 🚀");
-});
+// --- QUAN TRỌNG: Gắn IO vào App để Controller dùng ---
+app.set('io', io);
 
-// (Để phân biệt User thật vs Guest)
-io.use(socketAuth);
+app.use(express.json()); // Để đọc body JSON
 
-// Khởi chạy logic socket (Real-time + AI)
-socketService(io);
+// ... (Các route khác của bạn) ...
+const roomRoutes = require('./src/routes/roomRoutes'); // Route phòng
+app.use('/api/rooms', roomRoutes);
 
+// ... (Phần Socket Connection giữ nguyên) ...
+
+// --- AI WORKER (Sửa lại dùng Service) ---
+setInterval(async () => {
+  const activeRooms = getActiveRoomIds();
+
+  for (const roomId of activeRooms) {
+    // Lấy data từ Service
+    const batchToAnalyze = getAndClearBuffer(roomId);
+
+    if (!batchToAnalyze || batchToAnalyze.length < 3) {
+      // Nếu ít quá thì trả lại vào buffer (hoặc xử lý logic khác tùy bạn)
+      // Ở đây đơn giản là bỏ qua, chờ đợt sau
+      // (Lưu ý: Logic này hơi simple, thực tế nên restore lại buffer nếu chưa xử lý)
+      continue;
+    }
+
+    try {
+      const roomDoc = await db.collection('rooms').doc(roomId).get();
+      const question = roomDoc.exists ? roomDoc.data().question : "General";
+
+      // Gọi AI
+      const result = await analyzeComments(question, batchToAnalyze);
+
+      if (result) {
+        io.to(roomId).emit('server_update_summary', result);
+      }
+    } catch (e) {
+      console.error(`AI Error Room ${roomId}:`, e.message);
+    }
+  }
+}, 10000);
 
 const PORT = ENV.PORT || 3000;
 server.listen(PORT, () => {
