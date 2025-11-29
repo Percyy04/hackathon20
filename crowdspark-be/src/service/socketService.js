@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
-// const { analyzeComments } = require('./aiService'); // Bỏ comment khi bạn code xong AI
+const QRCode = require('qrcode');
+const { analyzeComments } = require('./aiService');
 
 // Bộ đệm lưu tin nhắn tạm thời trong RAM
 const aiBuffers = {};
@@ -21,7 +22,14 @@ module.exports = (io) => {
 
             const roomId = Math.floor(100000 + Math.random() * 900000).toString();
 
+            // --- [MỚI] SINH QR CODE TẠI SERVER ---
+            // Lấy IP máy chủ (hoặc domain ngrok) từ biến môi trường cho chuẩn
+            // Nếu chưa có thì fallback về localhost để test
+            const domain = process.env.CLIENT_URL || "http://192.168.1.5:5173";
+            const joinUrl = `${domain}/join/${roomId}`;
+
             try {
+                const qrCodeImage = await QRCode.toDataURL(joinUrl);
                 // Lưu vào Firestore
                 // hostId chính là Mongo ID của bạn kia -> Link 2 DB tại đây
                 await db.collection('rooms').doc(roomId).set({
@@ -33,7 +41,11 @@ module.exports = (io) => {
                 });
 
                 socket.join(roomId);
-                socket.emit('room_created', { roomId, question });
+                socket.emit('room_created', {
+                    roomId,
+                    question,
+                    qrCode: qrCodeImage
+                });
                 console.log(`✅ Room ${roomId} created by ${currentUser.name}`);
             } catch (e) {
                 console.error("Create Error:", e);
@@ -89,36 +101,37 @@ module.exports = (io) => {
             aiBuffers[roomId].push({ content });
         });
         // Cứ 10 giây quét buffer một lần
-        setInterval(async () => {
-            for (const roomId in aiBuffers) {
-                const buffer = aiBuffers[roomId];
 
-                // Nếu ít hơn 3 comment thì thôi, chưa bõ công gọi AI (tiết kiệm)
-                if (!buffer || buffer.length < 3) continue;
-
-                // Copy ra để xử lý và Clear buffer ngay
-                const batchToAnalyze = [...buffer];
-                aiBuffers[roomId] = [];
-
-                // Lấy câu hỏi từ DB (hoặc cache nếu có) để AI hiểu context
-                try {
-                    const roomDoc = await db.collection('rooms').doc(roomId).get();
-                    const question = roomDoc.exists ? roomDoc.data().question : "Ý kiến chung";
-
-                    // Gọi AI
-                    const result = await analyzeComments(question, batchToAnalyze);
-
-                    if (result) {
-                        // Bắn kết quả về cho Host hiển thị
-                        io.to(roomId).emit('server_update_summary', result);
-
-                        // (Optional) Lưu kết quả AI vào Firestore luôn nếu muốn xem lại lịch sử
-                        // await db.collection('rooms').doc(roomId).collection('ai_reports').add(result);
-                    }
-                } catch (e) {
-                    console.error(`AI Worker Error Room ${roomId}:`, e.message);
-                }
-            }
-        }, 10000);
     });
+    setInterval(async () => {
+        for (const roomId in aiBuffers) {
+            const buffer = aiBuffers[roomId];
+
+            // Nếu ít hơn 3 comment thì thôi, chưa bõ công gọi AI (tiết kiệm)
+            if (!buffer || buffer.length < 3) continue;
+
+            // Copy ra để xử lý và Clear buffer ngay
+            const batchToAnalyze = [...buffer];
+            aiBuffers[roomId] = [];
+
+            // Lấy câu hỏi từ DB (hoặc cache nếu có) để AI hiểu context
+            try {
+                const roomDoc = await db.collection('rooms').doc(roomId).get();
+                const question = roomDoc.exists ? roomDoc.data().question : "Ý kiến chung";
+
+                // Gọi AI
+                const result = await analyzeComments(question, batchToAnalyze);
+
+                if (result) {
+                    // Bắn kết quả về cho Host hiển thị
+                    io.to(roomId).emit('server_update_summary', result);
+
+                    // (Optional) Lưu kết quả AI vào Firestore luôn nếu muốn xem lại lịch sử
+                    // await db.collection('rooms').doc(roomId).collection('ai_reports').add(result);
+                }
+            } catch (e) {
+                console.error(`AI Worker Error Room ${roomId}:`, e.message);
+            }
+        }
+    }, 10000);
 };
