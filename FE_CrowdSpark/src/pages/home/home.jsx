@@ -1,0 +1,379 @@
+import React, { useEffect, useState } from "react";
+import { Button, Avatar, Dropdown, Badge, Input, Modal } from "antd";
+import {
+  PlusOutlined,
+  QuestionCircleOutlined,
+  LogoutOutlined,
+  SearchOutlined,
+  BellOutlined,
+  UserOutlined,
+  FireOutlined,
+  ClockCircleOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+} from "@ant-design/icons";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  addQuestionFunction,
+  getAllQuestions,
+  getAnswer,
+  logoutFunction,
+} from "../../services/apiServices";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
+
+const Home = () => {
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
+  const [selectedMenu, setSelectedMenu] = useState("home");
+  const userName = "John Doe";
+  const [questionsList, setQuestionsList] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newQuestion, setNewQuestion] = useState("");
+
+  // Store trạng thái mở của từng câu hỏi
+  const [openAnswers, setOpenAnswers] = useState({});
+
+  // Lưu câu trả lời của từng câu hỏi
+  const [answers, setAnswers] = useState({});
+
+  const toggleAnswer = (id) => {
+    setOpenAnswers((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const fetchQuestions = async () => {
+    try {
+      const res = await getAllQuestions();
+      setQuestionsList(res);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const fetchAnswer = async (qId) => {
+    try {
+      const res = await getAnswer(qId);
+      return res.summary;
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutFunction();
+      toast.success("Logout success!");
+      navigate("/");
+      sessionStorage.clear();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleAskQuestion = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleAddQuestion = async (content) => {
+    const payload = { question: content };
+    try {
+      const newQuestion = await addQuestionFunction(payload);
+
+      if (!newQuestion) {
+        toast.error("Cannot add new question!");
+      } else {
+        toast.success("New question added!");
+        setIsModalOpen(false);
+        fetchQuestions();
+      }
+    } catch (error) {
+      console.error("Failed to add question:", error);
+    }
+  };
+
+  const userMenuItems = [
+    {
+      key: "profile",
+      label: "My Profile",
+      icon: <UserOutlined />,
+    },
+    {
+      type: "divider",
+    },
+    {
+      key: "logout",
+      label: "Logout",
+      icon: <LogoutOutlined />,
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
+
+  const sidebarVariants = {
+    expanded: { width: 280 },
+    collapsed: { width: 80 },
+  };
+
+  const sparkVariants = {
+    initial: { scale: 0, rotate: 0 },
+    animate: {
+      scale: [0, 1, 0.8, 1],
+      rotate: [0, 180, 360],
+      transition: {
+        duration: 2,
+        repeat: Infinity,
+        repeatDelay: 3,
+      },
+    },
+  };
+
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-blue-50 to-gray-50">
+      {/* Sidebar */}
+      <motion.div
+        className="bg-white shadow-xl flex flex-col relative"
+        variants={sidebarVariants}
+        animate={collapsed ? "collapsed" : "expanded"}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-4 top-6 bg-blue-500 text-white rounded-full p-2 shadow-lg hover:bg-blue-600 z-10"
+        >
+          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+        </button>
+
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl relative"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+            >
+              <motion.div
+                className="absolute w-2 h-2 bg-yellow-400 rounded-full"
+                variants={sparkVariants}
+                initial="initial"
+                animate="animate"
+                style={{ top: 4, right: 4 }}
+              />
+              <QuestionCircleOutlined className="text-white text-xl" />
+            </motion.div>
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="overflow-hidden"
+                >
+                  <h1 className="text-xl font-bold text-gray-800">
+                    CrowdSpark
+                  </h1>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200"
+          >
+            <p className="text-sm text-gray-600">Welcome back,</p>
+            <p className="font-semibold text-gray-800">{userName}! 👋</p>
+          </motion.div>
+        )}
+
+        <div className="flex-1 p-4 overflow-y-auto">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleAskQuestion}
+            className={`${
+              collapsed ? "w-12 h-12" : "w-full h-12"
+            } bg-gradient-to-r from-blue-500 to-blue-600 border-0 rounded-xl font-semibold shadow-lg mb-4`}
+          >
+            {!collapsed && "Ask Question"}
+          </Button>
+
+          <Button
+            icon={<QuestionCircleOutlined />}
+            onClick={() => setSelectedMenu("myQuestions")}
+            className={`${
+              collapsed ? "w-12 h-12" : "w-full h-12"
+            } rounded-xl font-semibold mb-3 ${
+              selectedMenu === "myQuestions"
+                ? "bg-blue-50 text-blue-600 border-blue-200"
+                : "border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            {!collapsed && "My Questions"}
+          </Button>
+        </div>
+
+        <div className="p-4 border-t border-gray-100">
+          <Button
+            danger
+            icon={<LogoutOutlined />}
+            onClick={handleLogout}
+            className={`${
+              collapsed ? "w-12 h-12" : "w-full h-12"
+            } rounded-xl font-semibold`}
+          >
+            {!collapsed && "Logout"}
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white shadow-sm px-8 py-4 flex items-center justify-between">
+          <Input
+            size="large"
+            placeholder="Search questions..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            className="rounded-xl max-w-2xl"
+          />
+
+          <div className="flex items-center gap-4 ml-8">
+            <Badge count={3} offset={[-5, 5]}>
+              <Button
+                type="text"
+                icon={<BellOutlined className="text-xl" />}
+                className="rounded-full w-10 h-10"
+              />
+            </Badge>
+
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Avatar
+                size={40}
+                className="bg-gradient-to-br from-blue-500 to-blue-600 cursor-pointer"
+              >
+                {userName.charAt(0)}
+              </Avatar>
+            </Dropdown>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">
+              Trending Questions
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Discover the most popular questions in the community
+            </p>
+
+            <div className="space-y-4">
+              {questionsList?.map((question, index) => (
+                <motion.div
+                  key={question.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.01, y: -2 }}
+                  onClick={() => navigate(`/join/${question.id}`)}
+                  className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
+                >
+                  <div className="flex items-start gap-4">
+                    <Avatar
+                      size={48}
+                      className="bg-gradient-to-br from-blue-400 to-blue-600"
+                    >
+                      {question?.hostName?.charAt(0)}
+                    </Avatar>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600 mb-1">
+                        {question.question}
+                      </h3>
+
+                      <p className="text-sm text-gray-600 mb-3">
+                        Asked by{" "}
+                        <span className="font-medium">{question.hostName}</span>{" "}
+                        • {question.time}
+                      </p>
+
+                      {/* Nút xem câu trả lời */}
+                      <Button
+                        size="small"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+
+                          toggleAnswer(question.id);
+
+                          if (!openAnswers[question.id]) {
+                            const ans = await fetchAnswer(question.id);
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [question.id]: ans,
+                            }));
+                          }
+                        }}
+                      >
+                        {openAnswers[question.id]
+                          ? "Hide answer"
+                          : "View answer"}
+                      </Button>
+
+                      {/* ô hiển thị câu trả lời */}
+                      {openAnswers[question.id] && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-3 p-3 bg-gray-50 border rounded-lg text-gray-700"
+                        >
+                          {answers[question.id] ? (
+                            <p>{answers[question.id]}</p>
+                          ) : (
+                            <p className="text-gray-400">Loading...</p>
+                          )}
+                        </motion.div>
+                      )}
+
+                      {question.qrCode && (
+                        <img
+                          src={question.qrCode}
+                          alt="QR Code"
+                          className="w-24 h-24 mt-3 border rounded-md"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Modal
+        title="Ask a Question"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={() => handleAddQuestion(newQuestion)}
+      >
+        <Input
+          placeholder="Question title"
+          value={newQuestion}
+          onChange={(e) => setNewQuestion(e.target.value)}
+          className="mb-3"
+        />
+      </Modal>
+    </div>
+  );
+};
+
+export default Home;
